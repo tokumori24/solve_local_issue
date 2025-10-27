@@ -1,0 +1,245 @@
+<div class="container">
+  <!-- ヘッダー -->
+  <header>
+    <h1>家庭用電気使用量・CO2排出量管理</h1>
+  </header>
+
+  <!-- フラッシュメッセージ -->
+  <% if notice.present? %>
+    <div class="flash-notice" id="flash-notice">
+      <%= notice %>
+    </div>
+  <% end %>
+  <% if alert.present? %>
+    <div class="flash-alert" id="flash-alert">
+      <%= alert %>
+    </div>
+  <% end %>
+
+  <!-- メインコンテンツ -->
+  <div class="content">
+    <!-- 左側のセクション -->
+    <div class="left-section">
+      <!-- 使用量テーブルセクション -->
+      <div class="table-section">
+        <h2>月別電気使用量</h2>
+
+        <!-- 入力フォーム -->
+        <%= form_with model: @electricity_usage, url: electricity_usages_path, class: "input-section" do |f| %>
+          <%= f.label :year, "年:" %>
+          <%= f.number_field :year, value: Time.current.year %>
+
+          <%= f.label :month, "月:" %>
+          <%= f.select :month, (1..12).map { |m| ["#{m}月", m] } %>
+
+          <%= f.label :usage, "電気使用量 (kWh):" %>
+          <%= f.number_field :usage, step: 0.1, placeholder: "例: 250" %>
+
+          <%= f.submit "追加" %>
+        <% end %>
+
+        <!-- テーブル -->
+        <table>
+          <thead>
+            <tr>
+              <th>年月</th>
+              <th>電気使用量 (kWh)</th>
+              <th>CO2排出量 (kg)</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <% if @electricity_usages.any? %>
+              <% @electricity_usages.each do |usage| %>
+                <tr>
+                  <td><%= usage.year_month %></td>
+                  <td><%= number_with_precision(usage.usage, precision: 1) %></td>
+                  <td><%= number_with_precision(usage.co2_emission, precision: 2) %></td>
+                  <td>
+                    <%= button_to "削除", electricity_usage_path(usage), method: :delete, class: "delete-btn", data: { turbo_confirm: "本当に削除しますか？" } %>
+                  </td>
+                </tr>
+              <% end %>
+            <% else %>
+              <tr class="empty-row">
+                <td colspan="4">データがありません。上のフォームから追加してください。</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 豆知識セクション -->
+      <div class="tips-section">
+        <h2>電気量削減の豆知識</h2>
+        <ul id="tips-list">
+          <li>💡 照明をLEDに変えることで、電気使用量を約80%削減できます。</li>
+          <li>❄️ エアコンの設定温度を夏は1度高く、冬は1度低くすると約10%の節電になります。</li>
+          <li>🔌 使わない家電のコンセントを抜くことで、待機電力を削減できます（年間約6,000円の節約）。</li>
+          <li>🌡️ 冷蔵庫の設定を「強」から「中」に変えるだけで、年間約1,500円の節約になります。</li>
+          <li>🚿 シャワーの時間を1分短縮すると、年間約2,300円の節約になります。</li>
+          <li>🧺 洗濯機はまとめ洗いをすることで、電気と水の使用量を削減できます。</li>
+          <li>📺 テレビの明るさを少し下げると、約5%の節電になります。</li>
+          <li>☀️ カーテンを活用して、夏は日差しを遮り、冬は熱を逃がさないようにしましょう。</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 右側: グラフセクション -->
+    <div class="right-section">
+      <div class="chart-section">
+        <h2>月別電気使用量グラフ</h2>
+        <canvas id="usage-chart"></canvas>
+      </div>
+
+      <div class="chart-section">
+        <h2>月別CO2排出量グラフ</h2>
+        <canvas id="co2-chart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // グラフ用のデータ
+  const chartData = <%= raw @chart_data.to_json %>;
+
+  const months = chartData.map(d => d.month);
+  const usageData = chartData.map(d => d.usage);
+  const co2Data = chartData.map(d => d.co2);
+
+  // 電気使用量グラフ
+  const usageCtx = document.getElementById('usage-chart').getContext('2d');
+  new Chart(usageCtx, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [{
+        label: '電気使用量 (kWh)',
+        data: usageData,
+        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+        borderColor: 'rgba(102, 126, 234, 1)',
+        borderWidth: 2,
+        barPercentage: 0.7,
+        categoryPercentage: 0.7
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              return value + ' kWh';
+            },
+            font: {
+              size: window.innerWidth < 640 ? 10 : 12
+            }
+          }
+        },
+        x: {
+          ticks: {
+            font: {
+              size: window.innerWidth < 640 ? 10 : 12
+            },
+            autoSkip: false,
+            maxRotation: 0,
+            minRotation: 0
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            font: {
+              size: window.innerWidth < 640 ? 11 : 13
+            },
+            padding: window.innerWidth < 640 ? 10 : 15
+          }
+        }
+      }
+    }
+  });
+
+  // CO2排出量グラフ
+  const co2Ctx = document.getElementById('co2-chart').getContext('2d');
+  new Chart(co2Ctx, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [{
+        label: 'CO2排出量 (kg)',
+        data: co2Data,
+        backgroundColor: 'rgba(231, 76, 60, 0.2)',
+        borderColor: 'rgba(231, 76, 60, 1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              return value + ' kg';
+            },
+            font: {
+              size: window.innerWidth < 640 ? 10 : 12
+            }
+          }
+        },
+        x: {
+          ticks: {
+            font: {
+              size: window.innerWidth < 640 ? 10 : 12
+            },
+            autoSkip: false,
+            maxRotation: 0,
+            minRotation: 0
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            font: {
+              size: window.innerWidth < 640 ? 11 : 13
+            },
+            padding: window.innerWidth < 640 ? 10 : 15
+          }
+        }
+      }
+    }
+  });
+
+  // フラッシュメッセージの自動非表示
+  const flashNotice = document.getElementById('flash-notice');
+  const flashAlert = document.getElementById('flash-alert');
+
+  if (flashNotice) {
+    setTimeout(() => {
+      flashNotice.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => flashNotice.remove(), 300);
+    }, 3000);
+  }
+
+  if (flashAlert) {
+    setTimeout(() => {
+      flashAlert.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => flashAlert.remove(), 300);
+    }, 3000);
+  }
+</script>
