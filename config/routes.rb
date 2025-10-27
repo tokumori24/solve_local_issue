@@ -3,7 +3,7 @@ Rails.application.routes.draw do
   root "dashboard#index"
 
   # 電気使用量のCRUD操作
-  resources :electricity_usages, only: [:index, :create, :destroy]
+  resources :electricity_usages, only: [ :index, :create, :destroy ]
 
   # ダッシュボード
   get "dashboard", to: "dashboard#index"
