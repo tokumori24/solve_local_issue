@@ -11,8 +11,12 @@ class ElectricityUsagesController < ApplicationController
 
   def destroy
     @electricity_usage = ElectricityUsage.find(params[:id])
-    @electricity_usage.destroy
-    redirect_to root_path, notice: "#{@electricity_usage.year_month}のデータを削除しました。"
+    if @electricity_usage
+      @electricity_usage.destroy
+      redirect_to root_path, notice: "#{@electricity_usage.year_month}のデータを削除しました。"
+    else
+      redirect_to root_path, alert: "データが見つかりませんでした。"
+    end
   end
 
   private
